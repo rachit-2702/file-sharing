@@ -43,4 +43,42 @@ router.post('/', (req,res)=>{
 
 })
 
+
+
+router.post('/send', async(req,res)=>{
+
+    const {uuid, emailTo, emailFrom} = req.body;
+
+    if(!uuid || !emailTo || !emailFrom){
+        return res.status(422).send({error: "All fields are required"});
+
+    }
+
+    const file = await File.findOne({uuid: uuid});
+    if(file.sender){
+        return res.status(422).send({error: 'Email already send'});
+    }
+
+    file.sender = emailFrom;
+    file.reciever= emailTo;
+    const response = await file.save();
+
+
+    const sendMail = require("../services/emailService");
+    sendMail({
+        from:emailFrom,
+        to: emailTo,
+        subject: 'File shared',
+        text:`${emailFrom} has shared a file with you`,
+        html: require("../services/emailTemplate")({
+            emailFrom: emailFrom,
+            downloadLink: `${process.env.APP_BASE_URL}/files/${file.uuid}`,
+            size: parseInt(file.size/1000) + ' KB',
+            expires: '24 hours'
+        })
+    })
+return res.send({success:true});
+
+})
+
 module.exports = router;
